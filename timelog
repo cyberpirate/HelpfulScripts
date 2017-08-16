@@ -1,0 +1,81 @@
+#!/usr/local/bin/python3
+
+import os
+from datetime import datetime
+import json
+import sys
+from pathlib import Path
+
+timeFormat = "%c"
+now = datetime.now()
+todayName = "%04d_%02d_%02d.json" % (now.year, now.month, now.day)
+datRoot = "%s/Scripts_data/timelog_data/" % str(Path.home())
+todayPath = datRoot + todayName
+
+def formatTime(ts):
+
+	prefix = " "
+	if ts < 0:
+		prefix = "-"
+		ts *= -1
+
+	hours = ts // (60*60)
+	minnuts = (ts // 60) % 60
+	seconds = ts % 60
+
+	return "%s%d:%02d:%02d" % (prefix, hours, minnuts, seconds)
+
+if not os.path.isdir(datRoot):
+	os.makedirs(datRoot)
+
+dataString = "[]"
+
+if os.path.exists(todayPath):
+	dataFile = open(todayPath, 'r')
+	dataString = dataFile.read()
+	dataFile.close()
+
+data = json.loads(dataString)
+started = len(data) > 0 and "end" not in data[-1]
+totalSeconds = 0
+
+command = sys.argv[1] if len(sys.argv) > 1 else "empty"
+
+for d in data:
+	sTime = datetime.strptime(d["start"], timeFormat)
+	eTime = datetime.strptime(d["end"], timeFormat) if "end" in d else now
+	totalSeconds += (eTime - sTime).seconds
+
+# print(started)
+# print(totalSeconds)
+
+if command == "start":
+	if started:
+		print("Already started")
+	else:
+		data.append({
+			"start": now.strftime(timeFormat)
+		})
+		print("Started")
+
+elif command == "time" or (command == "empty" and started):
+	if not started:
+		print("Not started")
+	else:
+		print("time: " + formatTime(totalSeconds))
+		print("left: " + formatTime(8*60*60 - totalSeconds))
+
+elif command == "end":
+	if not started:
+		print("Not started")
+	else:
+		data[-1]["end"] = now.strftime(timeFormat)
+		print("Ended")
+		print("left: " + formatTime(8*60*60 - totalSeconds))
+
+else:
+	print("start\ntime\nend")
+
+dataFile = open(todayPath, 'w')
+dataFile.write(json.dumps(data))
+dataFile.close()
